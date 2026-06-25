@@ -667,10 +667,10 @@ html[data-dark="1"] .eic{background:#253347;}
 
   <!-- ── PRODUTOS DO COMITÊ ── -->
   <div id="view-produtos" style="display:none">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
       <h2 class="st" style="margin:0;font-size:19px">Produtos do Comitê de Alocação</h2>
-      <button class="bg" style="width:auto;padding:9px 20px;font-size:13px" onclick="toggleProdForm()">+ Adicionar Produto</button>
     </div>
+    <div class="ejs-cfg" id="prodSrcNotice" style="margin-bottom:16px">Carregando produtos da planilha&hellip;</div>
 
     <!-- Resumo de peso -->
     <div class="wsumm">
@@ -678,113 +678,6 @@ html[data-dark="1"] .eic{background:#253347;}
       <div><div class="wsumm-lbl">Produtos</div><div class="wsumm-val" id="wCount" style="font-size:14px">0</div></div>
       <div style="margin-left:auto">
         <button class="bo" style="width:auto;margin:0;padding:8px 18px;font-size:12px" onclick="aplicarComite()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Aplicar e usar Personalizada</button>
-      </div>
-    </div>
-
-    <!-- Formulário -->
-    <div class="prod-form" id="prodForm" style="display:none">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-        <span id="formTitle" style="font-family:'Geist',sans-serif;font-size:16px;color:var(--text)">Novo Produto</span>
-        <button onclick="hideProdForm()" style="border:none;background:none;cursor:pointer;font-size:22px;color:var(--muted);line-height:1">×</button>
-      </div>
-      <div class="frow c2">
-        <div class="fld2"><label>Nome do produto</label><input id="pNome" placeholder="Ex: Manatí Renda Plus (CDI+2,30%)"></div>
-        <div class="fld2"><label>Classe de ativo</label>
-          <select id="pClasse">
-            <option>RF Pós-fixado</option><option>RF Inflação</option><option>RF Prefixado</option>
-            <option>Multimercados</option><option>Renda Variável</option><option>Fundos Listados</option>
-            <option>Alternativos</option><option>Global RF</option><option>Global RV</option>
-          </select>
-        </div>
-      </div>
-      <div class="frow c3">
-        <div class="fld2"><label>Indexador</label>
-          <select id="pIdx" onchange="chgIdx('p')">
-            <option value="cdi">CDI+</option><option value="ipca">IPCA+</option>
-            <option value="pre">Prefixado (taxa fixa)</option><option value="est">Outros (estimado)</option>
-          </select>
-        </div>
-        <div class="fld2" id="pSpreadWrap"><label id="pSpreadLbl">Spread (% a.a.)</label>
-          <input type="number" id="pSpread" value="0" step="0.05" min="0"></div>
-        <div class="fld2" id="pEstWrap" style="display:none"><label>Taxa estimada (% a.a.)</label>
-          <input type="number" id="pEst" value="12.00" step="0.05" min="0" placeholder="Ex: 12.00">
-        </div>
-      </div>
-      <div class="frow c2">
-        <div class="fld2"><label>Liquidez</label>
-          <select id="pLiq"><option value="PG">PG — Liquidez D+0/D+1</option><option value="IQ">IQ — Ilíquido / Prazo longo</option></select>
-        </div>
-        <div class="fld2"><label>Peso na carteira (% do total)</label>
-          <input type="number" id="pPeso" value="5.00" step="0.01" min="0.01" max="100"></div>
-      </div>
-
-      <!-- Substituto 1 -->
-      <div class="sub-block">
-        <div class="sub-ttl">↔ Substituto 1 <span style="font-weight:400;text-transform:none;font-size:10px">(opcional)</span></div>
-        <div class="frow c2">
-          <div class="fld2"><label>Nome</label><input id="s1Nome" placeholder="Deixe vazio se não houver"></div>
-          <div class="fld2"><label>Classe (se diferente)</label>
-            <select id="s1Classe">
-              <option value="">— mesma do produto —</option>
-              <option>RF Pós-fixado</option><option>RF Inflação</option><option>RF Prefixado</option>
-              <option>Multimercados</option><option>Renda Variável</option><option>Fundos Listados</option>
-              <option>Alternativos</option><option>Global RF</option><option>Global RV</option>
-            </select>
-          </div>
-        </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <div class="fld2" style="flex:1;min-width:130px"><label>Indexador</label>
-            <select id="s1Idx" onchange="chgIdx('s1')">
-              <option value="cdi">CDI+</option><option value="ipca">IPCA+</option>
-              <option value="pre">Prefixado</option><option value="est">Outros</option>
-            </select>
-          </div>
-          <div class="fld2" style="flex:1;min-width:130px" id="s1SpreadWrap"><label id="s1SpreadLbl">Spread/Taxa (% a.a.)</label>
-            <input type="number" id="s1Spread" value="0" step="0.05" min="0"></div>
-          <div class="fld2" id="s1EstWrap" style="flex:1;min-width:130px;display:none"><label>Taxa est. (% a.a.)</label>
-            <input type="number" id="s1Est" value="12.00" step="0.05" min="0">
-          </div>
-          <div class="fld2" style="width:150px"><label>Liquidez</label>
-            <select id="s1Liq"><option value="PG">PG</option><option value="IQ">IQ</option></select>
-          </div>
-        </div>
-      </div>
-
-      <!-- Substituto 2 -->
-      <div class="sub-block" style="margin-top:8px">
-        <div class="sub-ttl">↔ Substituto 2 <span style="font-weight:400;text-transform:none;font-size:10px">(opcional)</span></div>
-        <div class="frow c2">
-          <div class="fld2"><label>Nome</label><input id="s2Nome" placeholder="Deixe vazio se não houver"></div>
-          <div class="fld2"><label>Classe (se diferente)</label>
-            <select id="s2Classe">
-              <option value="">— mesma do produto —</option>
-              <option>RF Pós-fixado</option><option>RF Inflação</option><option>RF Prefixado</option>
-              <option>Multimercados</option><option>Renda Variável</option><option>Fundos Listados</option>
-              <option>Alternativos</option><option>Global RF</option><option>Global RV</option>
-            </select>
-          </div>
-        </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <div class="fld2" style="flex:1;min-width:130px"><label>Indexador</label>
-            <select id="s2Idx" onchange="chgIdx('s2')">
-              <option value="cdi">CDI+</option><option value="ipca">IPCA+</option>
-              <option value="pre">Prefixado</option><option value="est">Outros</option>
-            </select>
-          </div>
-          <div class="fld2" style="flex:1;min-width:130px" id="s2SpreadWrap"><label id="s2SpreadLbl">Spread/Taxa (% a.a.)</label>
-            <input type="number" id="s2Spread" value="0" step="0.05" min="0"></div>
-          <div class="fld2" id="s2EstWrap" style="flex:1;min-width:130px;display:none"><label>Taxa est. (% a.a.)</label>
-            <input type="number" id="s2Est" value="12.00" step="0.05" min="0">
-          </div>
-          <div class="fld2" style="width:150px"><label>Liquidez</label>
-            <select id="s2Liq"><option value="PG">PG</option><option value="IQ">IQ</option></select>
-          </div>
-        </div>
-      </div>
-
-      <div style="display:flex;gap:10px;margin-top:16px">
-        <button class="bg" style="width:auto;padding:10px 24px" onclick="saveProd()"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar Produto</button>
-        <button class="bo" style="width:auto;margin:0;padding:9px 18px" onclick="hideProdForm()">Cancelar</button>
       </div>
     </div>
 
@@ -820,8 +713,8 @@ html[data-dark="1"] .eic{background:#253347;}
     <div id="prodList"></div>
     <div class="empty" id="prodEmpty">
       <div class="eic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
-      <h3>Nenhum produto cadastrado</h3>
-      <p>Clique em "+ Adicionar Produto" para lançar os produtos do comitê.</p>
+      <h3>Nenhum produto carregado</h3>
+      <p>Os produtos vêm da planilha <b>produtos.xlsx</b> publicada no site. Verifique se ela foi enviada ao GitHub.</p>
     </div>
 
     <!-- Carteiras modelo — produtos fixos dos perfis (somente leitura) -->
@@ -1113,18 +1006,10 @@ const COMITE_SEED=[
 ];
 let produtosComite=[], activeVersions={}, editingId=null, nextProdId=1;
 function saveComite(){lsSet('graham_comite',JSON.stringify({prods:produtosComite,av:activeVersions,next:nextProdId}));}
-(function(){
-  try{
-    var sv=JSON.parse(lsGet('graham_comite')||'null');
-    if(sv&&Array.isArray(sv.prods)){
-      produtosComite=sv.prods; activeVersions=sv.av||{};
-      nextProdId=sv.next||produtosComite.reduce(function(m,p){return Math.max(m,p.id);},0)+1;
-      return;
-    }
-  }catch(e){}
-  produtosComite=COMITE_SEED.map(function(p){return Object.assign({},p);});
-  nextProdId=COMITE_SEED.length+1;
-})();
+// Produtos vêm da planilha hospedada produtos.xlsx (carregada ao abrir o app).
+// O seed abaixo é só fallback de exemplo até a planilha responder.
+produtosComite=COMITE_SEED.map(function(p){return Object.assign({},p);});
+nextProdId=COMITE_SEED.length+1;
 
 // ── ESTADO EDIÇÃO DE CARTEIRA ───────────────────────────────────
 let allProfileProds=[], activeProds=[], editingProds=[], useActiveProds=false;
@@ -1256,7 +1141,7 @@ function switchView(v){
   document.getElementById('view-produtos').style.display=v==='produtos'?'block':'none';
   document.getElementById('view-comparativo').style.display=v==='comparativo'?'block':'none';
   document.querySelectorAll('.vtab').forEach((b,i)=>b.classList.toggle('on',(v==='analise'&&i===0)||(v==='produtos'&&i===1)||(v==='comparativo'&&i===2)));
-  if(v==='produtos'){renderMetasTable(); renderProdList(); updateWsumm(); renderModelList();}
+  if(v==='produtos'){renderMetasTable(); renderProdList(); updateWsumm(); renderModelList(); updateProdSourceNotice();}
   if(v==='comparativo') gerarComparativo();
 }
 
@@ -1416,8 +1301,8 @@ function gerar(){
     <div id="editMode" style="display:none"></div>
     <div class="tc" id="mainTWrap"><div style="overflow-x:auto"><table id="mainT"></table></div></div>
     <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:28px;align-items:center;">
-      <span class="tag tpg">PG</span><span style="font-size:11px;color:var(--muted)">Liquidez D+0/D+1</span>
-      <span class="tag tiq">IQ</span><span style="font-size:11px;color:var(--muted)">Ilíquido — prazo longo</span>
+      <span class="tag tpg">PG</span><span style="font-size:11px;color:var(--muted)">Público Geral</span>
+      <span class="tag tiq">IQ</span><span style="font-size:11px;color:var(--muted)">Investidor Qualificado</span>
       <span style="font-size:11px;color:var(--muted);font-style:italic">
         IPCA+spread = soma direta · CDI: ${pc(cdiA)} · IPCA: ${pc(ipcaA)} (BCB/IBGE abr/2026)</span>
     </div>`;
@@ -1494,7 +1379,7 @@ function gerar(){
   // Tabela principal
   const cls=[...new Set(prods.map(p=>p.cl))];
   const isPers=perfil==='Personalizada';
-  let th=`<thead><tr><th>Produto</th><th>Remuneração</th><th>Liq.</th>
+  let th=`<thead><tr><th>Produto</th><th>Remuneração</th><th>Público</th>
     ${isPers?'<th style="text-align:center">Alternativas</th>':''}
     <th class="r">% Cart.</th><th class="r">Valor alocado</th>
     <th class="r">Taxa anual</th><th class="r">Rend. mensal</th><th></th></tr></thead><tbody>`;
@@ -1784,7 +1669,7 @@ async function ppt(){
         const tableRows=[hdrRow,...pageRows];
         if(pi===pages.length-1) tableRows.push(totRow);
         pgSl.addTable(tableRows,{x:.3,y:.68,w:9.4,h:4.58,fontSize:9,fontFace:'Calibri',border:{pt:.5,color:'E2E8F0'},colW:[3.0,1.4,.5,.7,1.35,.9,1.55],rowH:.22});
-        if(pi===pages.length-1) pgSl.addText('PG = Liquidez D+0/D+1  -  IQ = Ilíquido  -  Taxa inflação = IPCA + spread',{x:.3,y:5.42,w:9.4,h:.18,fontSize:7.5,color:'94A3B8',fontFace:'Calibri',margin:0});
+        if(pi===pages.length-1) pgSl.addText('PG = Público Geral  -  IQ = Investidor Qualificado  -  Taxa inflação = IPCA + spread',{x:.3,y:5.42,w:9.4,h:.18,fontSize:7.5,color:'94A3B8',fontFace:'Calibri',margin:0});
       });
     }
   }
@@ -2521,6 +2406,76 @@ function renderModelList(pf,btn){
   cont.innerHTML=html;
 }
 
+// ── PRODUTOS VIA PLANILHA (produtos.xlsx hospedada) ─────────────
+var prodSource='loading';
+function mapearProdutos(rows){
+  var IDXMAP={'CDI+':'cdi','IPCA+':'ipca','Prefixado':'pre','Outros':'est'};
+  function num(v){return parseFloat(String(v==null?'':v).replace(',','.'))||0;}
+  function pub(v){return String(v==null?'':v).trim().toUpperCase()==='IQ'?'IQ':'PG';}
+  var out=[],byName={},id=1;
+  // 1ª passada: cria os produtos e guarda os nomes dos substitutos
+  rows.forEach(function(r){
+    var nome=String(r['Nome do produto']||'').trim();
+    if(!nome) return;
+    var idx=IDXMAP[String(r['Indexador']||'').trim()]||'est';
+    var taxa=num(r['Spread/Taxa (% a.a.)']);
+    var prod={id:id++,cl:String(r['Classe de ativo']||'').trim(),p:nome,
+              T:pub(r['Público']),w:num(r['Peso (%)'])/100,idx:idx,subs:[],_subs:[]};
+    if(idx==='est') prod.e=taxa; else prod.s=taxa;
+    [1,2].forEach(function(n){
+      var sn=String(r['Subst. '+n+' - Nome']||'').trim();
+      if(sn) prod._subs.push(sn);
+    });
+    out.push(prod); byName[nome.toLowerCase()]=prod;
+  });
+  // 2ª passada: resolve cada substituto pelo nome, puxando os dados do próprio produto na lista
+  out.forEach(function(prod){
+    prod._subs.forEach(function(sn){
+      var src=byName[sn.toLowerCase()];
+      if(src){
+        var sub={p:src.p,cl:src.cl,T:src.T,idx:src.idx};
+        if(src.idx==='est') sub.e=src.e; else sub.s=src.s;
+        prod.subs.push(sub);
+      }else{
+        // não encontrado na planilha: substituto mínimo só com o nome
+        prod.subs.push({p:sn,cl:prod.cl,T:prod.T,idx:'est',e:0});
+      }
+    });
+    delete prod._subs;
+  });
+  return out;
+}
+function carregarProdutosPlanilha(){
+  if(typeof XLSX==='undefined'){prodSource='fallback'; updateProdSourceNotice(); return;}
+  fetch('produtos.xlsx?v='+Date.now()).then(function(resp){
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    return resp.arrayBuffer();
+  }).then(function(buf){
+    var wb=XLSX.read(new Uint8Array(buf),{type:'array'});
+    var sh=wb.Sheets['Produtos']||wb.Sheets[wb.SheetNames[0]];
+    var rows=XLSX.utils.sheet_to_json(sh,{defval:''});
+    var prods=mapearProdutos(rows);
+    if(prods.length){produtosComite=prods; nextProdId=prods.length+1; activeVersions={};}
+    prodSource='excel';
+  }).catch(function(e){
+    console.warn('Falha ao carregar produtos.xlsx:',e); prodSource='fallback';
+  }).then(function(){
+    updateWsumm(); renderProdList(); updateProdSourceNotice();
+  });
+}
+function updateProdSourceNotice(){
+  var el=document.getElementById('prodSrcNotice'); if(!el) return;
+  var n=produtosComite.length;
+  if(prodSource==='excel'){
+    el.style.background='#F0FDF4'; el.style.borderColor='#6EE7B7'; el.style.color='#15803D';
+    el.innerHTML='&#10003; <b>'+n+' produto'+(n!==1?'s':'')+'</b> carregado'+(n!==1?'s':'')+' da planilha <b>produtos.xlsx</b>. Para alterar, edite a planilha e publique no GitHub.';
+  }else if(prodSource==='fallback'){
+    el.style.background='#FFF7ED'; el.style.borderColor='#FDE68A'; el.style.color='#92400E';
+    el.innerHTML='&#9888; Não foi possível ler <b>produtos.xlsx</b>. Mostrando lista de exemplo. Verifique se a planilha foi publicada no site.';
+  }else{
+    el.innerHTML='Carregando produtos da planilha&hellip;';
+  }
+}
 function renderProdList(){
   const container=document.getElementById('prodList');
   const empty=document.getElementById('prodEmpty');
@@ -2553,10 +2508,6 @@ function renderProdList(){
             <div class="pc-rate">${idxLabel(aIdx,aS,aE)} · Peso: <b>${(p.w*100).toFixed(2)}%</b></div>
           </div>
           <div class="pc-tags"><span class="tag t${aLiq.toLowerCase()}">${aLiq}</span><span class="pc-w">${(p.w*100).toFixed(2)}%</span></div>
-          <div style="display:flex;gap:5px;margin-left:8px">
-            <button class="btn-sm" onclick="showProdForm(${p.id})" title="Editar">${icon('pencil',12)}</button>
-            <button class="btn-sm btn-del" onclick="removeProd(${p.id})" title="Remover">${icon('trash',12)}</button>
-          </div>
         </div>`;
       if((p.subs||[]).length>0){
         html+=`<div class="pc-subs"><div class="ps-title">Substituir por:</div>
@@ -2648,7 +2599,7 @@ function renderEditMode(){
     <table class="edit-tbl">
       <thead><tr>
         <th style="width:36px">✕</th>
-        <th>Produto</th><th>Liq.</th><th>Remuneração</th>
+        <th>Produto</th><th>Público</th><th>Remuneração</th>
         <th class="c">% Carteira</th><th class="r">Valor (R$)</th>
       </tr></thead>
       <tbody>`;
@@ -3103,6 +3054,7 @@ if(lsGet('graham_dark')==="1"){
   var db=document.getElementById('darkBtn'); if(db) db.innerHTML=_SUN;
 }
 loadSavedCredentials();
+carregarProdutosPlanilha();
 
 </script>
 </body>
