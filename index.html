@@ -1902,11 +1902,22 @@ var _defaultUsers={
     {email:'rafaelfrancis84@gmail.com',        username:'rafael',    name:'Rafael',           password:'Admin@2026'},
     {email:'zavaskilucasjose228@gmail.com',    username:'lucas',     name:'Lucas Zavaski',    password:'Admin@2026'}
   ],
-  advisors:[{username:'assessor',name:'Assessor Demo',password:'Assessor@2026'}]
+  advisors:[
+    {username:'assessor',name:'Assessor Demo',password:'Assessor@2026'},
+    {username:'Brondani',name:'Jean Brondani',password:'123456',mustChangePassword:true}
+  ]
 };
 function loadUsers(){
-  try{return JSON.parse(lsGet('graham_users')||'null')||_defaultUsers;}
-  catch(e){return _defaultUsers;}
+  var u;
+  try{ u=JSON.parse(lsGet('graham_users')||'null'); }catch(e){ u=null; }
+  if(!u||typeof u!=='object') u={admins:[],advisors:[]};
+  if(!Array.isArray(u.admins)) u.admins=[];
+  if(!Array.isArray(u.advisors)) u.advisors=[];
+  // Usuários de fábrica (embutidos no código) sempre presentes — em qualquer navegador,
+  // mesmo nos que já usaram o app. Não sobrescreve quem já existe (preserva senha trocada).
+  _defaultUsers.admins.forEach(function(a){ if(!u.admins.some(function(x){return x.email===a.email;})) u.admins.push(Object.assign({},a)); });
+  _defaultUsers.advisors.forEach(function(a){ if(!u.advisors.some(function(x){return x.username===a.username;})) u.advisors.push(Object.assign({},a)); });
+  return u;
 }
 function saveUsers(u){lsSet('graham_users',JSON.stringify(u));}
 
