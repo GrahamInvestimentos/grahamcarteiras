@@ -2476,9 +2476,17 @@ function mapearProdutos(rows){
 }
 function mapearIndicadores(rows){
   function num(v){ if(v===''||v==null) return null; var n=parseFloat(String(v).replace(',','.')); return isNaN(n)?null:n; }
+  // Aceita o mês como texto ("Mai/26"), como Data, ou como número de série do Excel (ex: 46143)
+  var MM=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  function mesLabel(v){
+    if(v===''||v==null) return '';
+    if(v instanceof Date) return MM[v.getUTCMonth()]+'/'+String(v.getUTCFullYear()).slice(-2);
+    if(typeof v==='number'){ var d=new Date(Math.round((v-25569)*86400000)); return MM[d.getUTCMonth()]+'/'+String(d.getUTCFullYear()).slice(-2); }
+    return String(v).trim();
+  }
   var out=[];
   rows.forEach(function(r){
-    var m=String(r['Mês']||r['Mes']||'').trim();
+    var m=mesLabel(r['Mês']!==undefined?r['Mês']:r['Mes']);
     if(!m) return;
     var c=num(r['CDI mensal (%)']);
     if(c===null) return;
