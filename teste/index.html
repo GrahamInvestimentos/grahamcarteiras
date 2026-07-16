@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teste de Login — Graham</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+body{font-family:Arial,sans-serif;background:#f4f6f8;color:#17212b;margin:0;display:grid;min-height:100vh;place-items:center}
+main{width:min(420px,calc(100% - 36px));background:#fff;padding:32px;border-radius:14px;box-shadow:0 10px 35px #0002}
+h1{margin:0 0 8px;color:#0a563d;font-size:24px}p{line-height:1.5;color:#52606d}label{display:block;margin:16px 0 6px;font-weight:600}
+input{box-sizing:border-box;width:100%;padding:12px;border:1px solid #cbd5df;border-radius:8px;font-size:16px}
+button{width:100%;padding:12px;border:0;border-radius:8px;background:#0a563d;color:#fff;font-weight:700;font-size:16px;cursor:pointer;margin-top:20px}
+button.secondary{background:#e8edf0;color:#17212b}.notice{padding:12px;border-radius:8px;margin-top:16px;display:none}.ok{background:#e6f7ee;color:#075b32}.error{background:#fdeaea;color:#9c2222}.hidden{display:none}
+small{display:block;margin-top:20px;color:#718096}
+</style>
+</head>
+<body><main>
+<h1>Teste de acesso Graham</h1>
+<p>Esta página confirma que o mesmo login funciona em qualquer computador.</p>
+<section id="loginBox">
+<label for="email">E-mail</label><input id="email" type="email" autocomplete="email" required>
+<label for="password">Senha</label><input id="password" type="password" autocomplete="current-password" required>
+<button id="loginButton">Entrar</button>
+</section>
+<section id="changeBox" class="hidden">
+<p><strong>Primeiro acesso:</strong> escolha uma nova senha para continuar.</p>
+<label for="newPassword">Nova senha</label><input id="newPassword" type="password" autocomplete="new-password">
+<label for="newPasswordConfirm">Repita a nova senha</label><input id="newPasswordConfirm" type="password" autocomplete="new-password">
+<button id="changeButton">Salvar nova senha</button>
+</section>
+<section id="loggedBox" class="hidden">
+<div id="profileResult" class="notice ok"></div>
+<button id="logoutButton" class="secondary">Sair</button>
+</section>
+<div id="message" class="notice"></div>
+<small>Ambiente isolado de teste — não altera a página principal.</small>
+</main>
+<script>
+const client = supabase.createClient(
+  'https://mwgfglluvwgpucycrttq.supabase.co',
+  'sb_publishable_cs-l9kyBRRzKP0SgRwON5A_Y4C6UlPU'
+);
+let currentProfile;
+const message = document.getElementById('message');
+function show(text, kind='error'){message.textContent=text;message.className='notice '+kind;message.style.display='block'}
+function setView(name){
+ document.getElementById('loginBox').classList.toggle('hidden',name!=='login');
+ document.getElementById('changeBox').classList.toggle('hidden',name!=='change');
+ document.getElementById('loggedBox').classList.toggle('hidden',name!=='logged');
+}
+async function loadProfile(){
+ const {data:{user}}=await client.auth.getUser();
+ if(!user){setView('login');return}
+ const {data,error}=await client.from('profiles').select('email,full_name,role,must_change_password').eq('id',user.id).single();
+ if(error){show('Não foi possível carregar o perfil.');return}
+ currentProfile=data;
+ if(data.must_change_password){setView('change');return}
+ document.getElementById('profileResult').textContent='Login confirmado: '+(data.full_name||data.email)+' — perfil '+(data.role==='admin'?'administrador':'assessor')+'.';
+ document.getElementById('profileResult').style.display='block';setView('logged');
+}
+document.getElementById('loginButton').onclick=async()=>{
+ const email=document.getElementById('email').value.trim(),password=document.getElementById('password').value;
+ if(!email||!password){show('Informe e-mail e senha.');return}
+ const {error}=await client.auth.signInWithPassword({email,password});
+ if(error){show('E-mail ou senha inválidos.');return}
+ message.style.display='none';await loadProfile();
+};
+document.getElementById('changeButton').onclick=async()=>{
+ const password=document.getElementById('newPassword').value,confirm=document.getElementById('newPasswordConfirm').value;
+ if(password.length<6){show('Use pelo menos 6 caracteres.');return}
+ if(password!==confirm){show('As senhas não conferem.');return}
+ const {error}=await client.auth.updateUser({password});
+ if(error){show('Não foi possível trocar a senha.');return}
+ const {data:{user}}=await client.auth.getUser();
+ const {error:profileError}=await client.from('profiles').update({must_change_password:false}).eq('id',user.id);
+ if(profileError){show('Senha alterada, mas o perfil não foi atualizado.');return}
+ message.style.display='none';await loadProfile();
+};
+document.getElementById('logoutButton').onclick=async()=>{await client.auth.signOut();setView('login')};
+loadProfile();
+</script></body></html>
