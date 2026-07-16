@@ -8,7 +8,12 @@
 <title>Graham — Sistema de Carteiras</title>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-config.js"></script>
+<script>
+window.GRAHAM_SUPABASE = {
+  url: 'https://mwgfglluvwgpucycrttq.supabase.co',
+  publishableKey: 'sb_publishable_cs-l9kyBRRzKP0SgRwON5A_Y4C6UlPU'
+};
+</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
@@ -490,8 +495,8 @@ html[data-dark="1"] .eic{background:#253347;}
     <!-- Step 1: Credenciais -->
     <div id="ls1">
       <div class="lfld">
-        <label>E-mail</label>
-        <input id="lUser" type="email" placeholder="email@exemplo.com" name="username" autocomplete="username"
+        <label>E-mail (administrador) ou usuário (assessor)</label>
+        <input id="lUser" type="text" placeholder="email@exemplo.com ou usuário" name="username" autocomplete="username"
           onkeydown="if(event.key==='Enter')document.getElementById('lPass').focus()">
       </div>
       <div class="lfld">
@@ -2554,7 +2559,7 @@ function mapearIndicadores(rows){
 }
 function carregarProdutosPlanilha(){
   if(typeof XLSX==='undefined'){prodSource='fallback'; updateProdSourceNotice(); return;}
-  fetch('../produtos.xlsx?v='+Date.now()).then(function(resp){
+  fetch('produtos.xlsx?v='+Date.now()).then(function(resp){
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     return resp.arrayBuffer();
   }).then(function(buf){
@@ -3174,27 +3179,6 @@ function applyEdits(){
   useActiveProds=true;
   gerar();
 }
-var grahamAppVersion=null;
-function verificarNovaVersao(){
-  fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(resp){
-    if(!resp.ok) throw new Error('HTTP '+resp.status);
-    return resp.json();
-  }).then(function(data){
-    var versao=data&&data.version;
-    if(!versao) return;
-    if(grahamAppVersion===null){grahamAppVersion=versao;return;}
-    if(grahamAppVersion!==versao) mostrarAvisoNovaVersao();
-  }).catch(function(err){console.warn('Não foi possível verificar a versão do app:',err);});
-}
-function mostrarAvisoNovaVersao(){
-  if(document.getElementById('grahamVersionNotice')) return;
-  var aviso=document.createElement('div');
-  aviso.id='grahamVersionNotice';
-  aviso.style.cssText='position:fixed;right:20px;bottom:20px;z-index:9999;max-width:340px;padding:14px 16px;border-radius:10px;background:#123742;color:#fff;font:500 14px Hanken Grotesk,Arial,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.22)';
-  aviso.innerHTML='Uma nova versão do sistema está disponível.<button type="button" style="margin:10px 0 0 12px;padding:7px 10px;border:0;border-radius:6px;background:#fff;color:#123742;font:600 12px Hanken Grotesk,Arial,sans-serif;cursor:pointer">Atualizar agora</button>';
-  aviso.querySelector('button').addEventListener('click',function(){location.reload();});
-  document.body.appendChild(aviso);
-}
 loadSavedCredentials();
 if(lsGet('graham_dark')==="1"){
   document.documentElement.setAttribute('data-dark','1');
@@ -3203,8 +3187,6 @@ if(lsGet('graham_dark')==="1"){
 loadSavedCredentials();
 carregarProdutosPlanilha();
 iniciarAuthCentral();
-verificarNovaVersao();
-setInterval(verificarNovaVersao,180000);
 
 </script>
 </body>
