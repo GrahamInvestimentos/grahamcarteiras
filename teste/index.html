@@ -8,12 +8,7 @@
 <title>Graham — Sistema de Carteiras</title>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-window.GRAHAM_SUPABASE = {
-  url: 'https://mwgfglluvwgpucycrttq.supabase.co',
-  publishableKey: 'sb_publishable_cs-l9kyBRRzKP0SgRwON5A_Y4C6UlPU'
-};
-</script>
+<script>window.GRAHAM_SUPABASE={url:'https://mwgfglluvwgpucycrttq.supabase.co',publishableKey:'sb_publishable_cs-l9kyBRRzKP0SgRwON5A_Y4C6UlPU'};</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
@@ -2020,9 +2015,7 @@ function carregarPerfilCentral(authUser,restaurandoSessao){
     if(result.error||!result.data){throw new Error('Seu perfil de acesso não foi encontrado.');}
     var user={name:result.data.full_name||authUser.email,role:result.data.role,id:result.data.email};
     if(result.data.must_change_password){
-      if(restaurandoSessao){
-        return grahamSupabase.auth.signOut();
-      }
+      if(restaurandoSessao) return grahamSupabase.auth.signOut();
       AUTH.pendingCentralUser=user;
       showLStep(3);
       document.getElementById('np1').value='';
@@ -2036,7 +2029,7 @@ function carregarPerfilCentral(authUser,restaurandoSessao){
 function entrarAuthCentral(email,password){
   return grahamSupabase.auth.signInWithPassword({email:email,password:password}).then(function(result){
     if(result.error) throw new Error('E-mail ou senha incorretos.');
-    return carregarPerfilCentral(result.data.user);
+    return carregarPerfilCentral(result.data.user,false);
   });
 }
 async function doLogin(){
@@ -2046,7 +2039,7 @@ async function doLogin(){
     clearAuthErr();
     if(!id||!pw){showLErr('Preencha todos os campos.');return;}
     if(authCentralAtiva()){
-      lsSet('graham_remember','0'); lsSet('graham_saved_id',''); lsSet('graham_saved_pw','');
+      lsSet('graham_remember','0');lsSet('graham_saved_id','');lsSet('graham_saved_pw','');
       await entrarAuthCentral(id,pw);
       return;
     }
@@ -2139,10 +2132,7 @@ function loginOk(user){
   document.getElementById('uName').textContent=user.name;
   applyRoleUI();
   resetPremissas();
-  if(user.role==='admin'){
-    renderMetasTable();
-    if(!authCentralAtiva()){renderUserTables(); updateEjsNotice();}
-  }
+  if(user.role==='admin'){renderMetasTable(); renderUserTables(); updateEjsNotice();}
 }
 
 function logout(){
@@ -2163,7 +2153,7 @@ function applyRoleUI(){
   var prodTab=document.querySelectorAll('.vtab')[1];
   if(prodTab) prodTab.style.display=isAdmin?'':'none';
   var au=document.getElementById('adminUsers');
-  if(au) au.style.display=isAdmin&&!authCentralAtiva()?'block':'none';
+  if(au) au.style.display=isAdmin?'block':'none';
   var refBtn=document.getElementById('btnRefEdit');
   if(refBtn) refBtn.style.display=isAdmin?'inline-block':'none';
   if(!isAdmin) switchView('analise');
@@ -2562,7 +2552,7 @@ function mapearIndicadores(rows){
 }
 function carregarProdutosPlanilha(){
   if(typeof XLSX==='undefined'){prodSource='fallback'; updateProdSourceNotice(); return;}
-  fetch('produtos.xlsx?v='+Date.now()).then(function(resp){
+  fetch('../produtos.xlsx?v='+Date.now()).then(function(resp){
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     return resp.arrayBuffer();
   }).then(function(buf){
