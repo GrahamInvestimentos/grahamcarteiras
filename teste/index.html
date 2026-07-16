@@ -2012,14 +2012,17 @@ function iniciarAuthCentral(){
   grahamSupabase=window.supabase.createClient(cfg.url,cfg.publishableKey);
   grahamSupabase.auth.getSession().then(function(result){
     if(result.error||!result.data.session) return;
-    carregarPerfilCentral(result.data.session.user);
+    carregarPerfilCentral(result.data.session.user,true);
   });
 }
-function carregarPerfilCentral(authUser){
+function carregarPerfilCentral(authUser,restaurandoSessao){
   return grahamSupabase.from('profiles').select('email,full_name,role,must_change_password').eq('id',authUser.id).single().then(function(result){
     if(result.error||!result.data){throw new Error('Seu perfil de acesso não foi encontrado.');}
     var user={name:result.data.full_name||authUser.email,role:result.data.role,id:result.data.email};
     if(result.data.must_change_password){
+      if(restaurandoSessao){
+        return grahamSupabase.auth.signOut();
+      }
       AUTH.pendingCentralUser=user;
       showLStep(3);
       document.getElementById('np1').value='';
