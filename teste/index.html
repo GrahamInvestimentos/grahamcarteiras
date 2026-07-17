@@ -8,7 +8,7 @@
 <title>Graham — Sistema de Carteiras</title>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>window.GRAHAM_SUPABASE={url:'https://mwgfglluvwgpucycrttq.supabase.co',publishableKey:'sb_publishable_cs-l9kyBRRzKP0SgRwON5A_Y4C6UlPU'};</script>
+<script src="supabase-config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
@@ -490,8 +490,8 @@ html[data-dark="1"] .eic{background:#253347;}
     <!-- Step 1: Credenciais -->
     <div id="ls1">
       <div class="lfld">
-        <label>E-mail (administrador) ou usuário (assessor)</label>
-        <input id="lUser" type="text" placeholder="email@exemplo.com ou usuário" name="username" autocomplete="username"
+        <label>E-mail</label>
+        <input id="lUser" type="email" placeholder="email@exemplo.com" name="username" autocomplete="username"
           onkeydown="if(event.key==='Enter')document.getElementById('lPass').focus()">
       </div>
       <div class="lfld">
@@ -2010,18 +2010,29 @@ function iniciarAuthCentral(){
     carregarPerfilCentral(result.data.session.user,true);
   });
 }
-function carregarPerfilCentral(authUser,restaurandoSessao){
+function adminOtpKey(email){return 'graham_admin_otp_'+email;}
+function carregarPerfilCentral(authUser,restaurandoSessao,otpValidado){
   return grahamSupabase.from('profiles').select('email,full_name,role,must_change_password').eq('id',authUser.id).single().then(function(result){
     if(result.error||!result.data){throw new Error('Seu perfil de acesso não foi encontrado.');}
     var user={name:result.data.full_name||authUser.email,role:result.data.role,id:result.data.email};
     if(result.data.must_change_password){
-      if(restaurandoSessao) return grahamSupabase.auth.signOut();
       AUTH.pendingCentralUser=user;
       showLStep(3);
       document.getElementById('np1').value='';
       document.getElementById('np2').value='';
       document.getElementById('npErr').style.display='none';
       return;
+    }
+    if(user.role==='admin'){
+      if(otpValidado||sessionStorage.getItem(adminOtpKey(user.id))==='1'){
+        loginOk(user);return;
+      }
+      if(restaurandoSessao){
+        grahamSupabase.auth.signOut();
+        showLStep(1);
+        return;
+      }
+      enviarOtpAdminCentral(user);return;
     }
     loginOk(user);
   });
@@ -2032,6 +2043,19 @@ function entrarAuthCentral(email,password){
     return carregarPerfilCentral(result.data.user,false);
   });
 }
+function enviarOtpAdminCentral(user){
+  AUTH.pendingCentralUser=user;
+  showLStep(2);
+  document.getElementById('otpTarget').textContent=user.id;
+  document.getElementById('otpIn').value='';
+  showOTPMsg('Enviando código para o seu e-mail...','#2A6B4F');
+  grahamSupabase.auth.signInWithOtp({email:user.id,options:{shouldCreateUser:false}}).then(function(result){
+    if(result.error) throw result.error;
+    showOTPMsg('Código enviado. Verifique seu e-mail.','#2A6B4F');
+  }).catch(function(error){
+    showOTPErr('Não foi possível enviar o código: '+(error.message||'tente novamente.'));
+  });
+}
 async function doLogin(){
   try{
     const id=document.getElementById('lUser').value.trim();
@@ -2039,7 +2063,7 @@ async function doLogin(){
     clearAuthErr();
     if(!id||!pw){showLErr('Preencha todos os campos.');return;}
     if(authCentralAtiva()){
-      lsSet('graham_remember','0');lsSet('graham_saved_id','');lsSet('graham_saved_pw','');
+      lsSet('graham_remember','0'); lsSet('graham_saved_id',''); lsSet('graham_saved_pw','');
       await entrarAuthCentral(id,pw);
       return;
     }
@@ -2118,6 +2142,17 @@ function verifyOTP(){
   const inp=document.getElementById('otpIn').value.trim();
   clearAuthErr();
   if(!inp){showOTPErr('Digite o código de 6 dígitos.');return;}
+  if(authCentralAtiva()){
+    if(!AUTH.pendingCentralUser){showOTPErr('Faça login novamente.');showLStep(1);return;}
+    grahamSupabase.auth.verifyOtp({email:AUTH.pendingCentralUser.id,token:inp,type:'email'}).then(function(result){
+      if(result.error) throw result.error;
+      sessionStorage.setItem(adminOtpKey(AUTH.pendingCentralUser.id),'1');
+      return carregarPerfilCentral(result.data.user,false,true);
+    }).catch(function(error){
+      showOTPErr('Código incorreto ou expirado. Solicite um novo login.');
+    });
+    return;
+  }
   if(Date.now()>AUTH.otpExp){showOTPErr('Código expirado. Faça login novamente.');return;}
   if(inp!==AUTH.otp){showOTPErr('Código incorreto. Tente novamente.');return;}
   const adm=loadUsers().admins.find(a=>a.email===AUTH.pendingEmail);
@@ -2132,12 +2167,16 @@ function loginOk(user){
   document.getElementById('uName').textContent=user.name;
   applyRoleUI();
   resetPremissas();
-  if(user.role==='admin'){renderMetasTable(); renderUserTables(); updateEjsNotice();}
+  if(user.role==='admin'){
+    renderMetasTable();
+    if(!authCentralAtiva()){renderUserTables(); updateEjsNotice();}
+  }
 }
 
 function logout(){
   if(!confirm('Deseja sair do sistema?'))return;
   if(authCentralAtiva()&&grahamSupabase) grahamSupabase.auth.signOut();
+  if(AUTH.user&&AUTH.user.role==='admin') sessionStorage.removeItem(adminOtpKey(AUTH.user.id));
   AUTH={user:null,otp:null,otpExp:0,pendingEmail:null,addingRole:null};
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('userBar').style.display='none';
@@ -2153,7 +2192,7 @@ function applyRoleUI(){
   var prodTab=document.querySelectorAll('.vtab')[1];
   if(prodTab) prodTab.style.display=isAdmin?'':'none';
   var au=document.getElementById('adminUsers');
-  if(au) au.style.display=isAdmin?'block':'none';
+  if(au) au.style.display=isAdmin&&!authCentralAtiva()?'block':'none';
   var refBtn=document.getElementById('btnRefEdit');
   if(refBtn) refBtn.style.display=isAdmin?'inline-block':'none';
   if(!isAdmin) switchView('analise');
@@ -2552,7 +2591,7 @@ function mapearIndicadores(rows){
 }
 function carregarProdutosPlanilha(){
   if(typeof XLSX==='undefined'){prodSource='fallback'; updateProdSourceNotice(); return;}
-  fetch('../produtos.xlsx?v='+Date.now()).then(function(resp){
+  fetch('produtos.xlsx?v='+Date.now()).then(function(resp){
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     return resp.arrayBuffer();
   }).then(function(buf){
@@ -3129,7 +3168,8 @@ function confirmFirstPassword(){
       return grahamSupabase.from('profiles').update({must_change_password:false}).eq('email',AUTH.pendingCentralUser.id);
     }).then(function(result){
       if(result.error) throw result.error;
-      loginOk(AUTH.pendingCentralUser);
+      if(AUTH.pendingCentralUser.role==='admin') enviarOtpAdminCentral(AUTH.pendingCentralUser);
+      else loginOk(AUTH.pendingCentralUser);
     }).catch(function(result){
       err.textContent='Não foi possível alterar a senha: '+(result.message||'tente novamente.');
       err.style.background='#FEF2F2';err.style.color='#EF4444';err.style.display='block';
@@ -3172,6 +3212,27 @@ function applyEdits(){
   useActiveProds=true;
   gerar();
 }
+var grahamAppVersion=null;
+function verificarNovaVersao(){
+  fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(resp){
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    return resp.json();
+  }).then(function(data){
+    var versao=data&&data.version;
+    if(!versao) return;
+    if(grahamAppVersion===null){grahamAppVersion=versao;return;}
+    if(grahamAppVersion!==versao) mostrarAvisoNovaVersao();
+  }).catch(function(err){console.warn('Não foi possível verificar a versão do app:',err);});
+}
+function mostrarAvisoNovaVersao(){
+  if(document.getElementById('grahamVersionNotice')) return;
+  var aviso=document.createElement('div');
+  aviso.id='grahamVersionNotice';
+  aviso.style.cssText='position:fixed;right:20px;bottom:20px;z-index:9999;max-width:340px;padding:14px 16px;border-radius:10px;background:#123742;color:#fff;font:500 14px Hanken Grotesk,Arial,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.22)';
+  aviso.innerHTML='Uma nova versão do sistema está disponível.<button type="button" style="margin:10px 0 0 12px;padding:7px 10px;border:0;border-radius:6px;background:#fff;color:#123742;font:600 12px Hanken Grotesk,Arial,sans-serif;cursor:pointer">Atualizar agora</button>';
+  aviso.querySelector('button').addEventListener('click',function(){location.reload();});
+  document.body.appendChild(aviso);
+}
 loadSavedCredentials();
 if(lsGet('graham_dark')==="1"){
   document.documentElement.setAttribute('data-dark','1');
@@ -3180,10 +3241,9 @@ if(lsGet('graham_dark')==="1"){
 loadSavedCredentials();
 carregarProdutosPlanilha();
 iniciarAuthCentral();
+verificarNovaVersao();
+setInterval(verificarNovaVersao,180000);
 
 </script>
 </body>
 </html>
-<script src="otp-admin.js"></script>
-
-<script src="otp-admin.js"></script>
