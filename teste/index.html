@@ -8,9 +8,14 @@
 <title>Graham — Sistema de Carteiras</title>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-config.js"></script>
+<script>
+window.GRAHAM_SUPABASE = {
+  url: 'https://mwgfglluvwgpucycrttq.supabase.co',
+  publishableKey: 'sb_publishable_cs-l9kyBRRzKP0SgRwON5A_Y4C6UlPU'
+};
+</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Spectral:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -61,6 +66,9 @@ body{font-family:'Hanken Grotesk',sans-serif;background:#F4F4F1;color:var(--text
 .fld input{width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--rs);
   font-family:'Hanken Grotesk',sans-serif;font-size:13px;color:var(--text);outline:none;}
 .fld input:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(28,94,99,.12);}
+.client-type{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+.ctb{padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--rs);background:#fff;color:var(--text);cursor:pointer;font-family:'Hanken Grotesk',sans-serif;font-size:13px;font-weight:600;transition:all .15s;}
+.ctb:hover,.ctb.on{border-color:var(--blue);background:var(--blue-bg);}
 
 .pg{display:flex;flex-direction:column;gap:7px;}
 .pb{width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--rs);
@@ -240,6 +248,8 @@ html[data-dark="1"] .pc-wrap,html[data-dark="1"] .edit-panel,
 html[data-dark="1"] .eb{background:#1E293B;border-color:#334155;}
 html[data-dark="1"] .pb{background:#1E293B;border-color:#334155;}
 html[data-dark="1"] .pb:hover,html[data-dark="1"] .pb.on{background:rgba(59,130,246,.14);border-color:#60A5FA;}
+html[data-dark="1"] .ctb{background:#1E293B;border-color:#334155;color:#E2E8F0;}
+html[data-dark="1"] .ctb:hover,html[data-dark="1"] .ctb.on{background:rgba(59,130,246,.14);border-color:#60A5FA;}
 html[data-dark="1"] .bo{background:#1E293B;color:#E2E8F0;border-color:#334155;}
 html[data-dark="1"] .bo:hover{background:rgba(59,130,246,.14);border-color:#60A5FA;color:#60A5FA;}
 html[data-dark="1"] .bx{background:#1E293B;color:#E2E8F0;border-color:#334155;}
@@ -490,8 +500,8 @@ html[data-dark="1"] .eic{background:#253347;}
     <!-- Step 1: Credenciais -->
     <div id="ls1">
       <div class="lfld">
-        <label>E-mail</label>
-        <input id="lUser" type="email" placeholder="email@exemplo.com" name="username" autocomplete="username"
+        <label>E-mail (administrador) ou usuário (assessor)</label>
+        <input id="lUser" type="text" placeholder="email@exemplo.com ou usuário" name="username" autocomplete="username"
           onkeydown="if(event.key==='Enter')document.getElementById('lPass').focus()">
       </div>
       <div class="lfld">
@@ -537,8 +547,8 @@ html[data-dark="1"] .eic{background:#253347;}
     <div id="ls3" style="display:none">
       <div style="text-align:center;margin-bottom:22px">
         <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#0B1C35" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-        <div style="font-weight:600;color:var(--navy);font-size:15px">Crie sua senha</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:7px;line-height:1.6">
+        <div id="passwordStepTitle" style="font-weight:600;color:var(--navy);font-size:15px">Crie sua senha</div>
+        <div id="passwordStepDesc" style="font-size:12px;color:var(--muted);margin-top:7px;line-height:1.6">
           Primeiro acesso detectado.<br>Defina uma nova senha para continuar.
         </div>
       </div>
@@ -587,6 +597,7 @@ html[data-dark="1"] .eic{background:#253347;}
   <div class="ss">
     <div class="sl">Dados do cliente</div>
     <div class="fld"><label>Nome completo</label><input id="nome" placeholder="Ex: João da Silva" oninput="chk()"></div>
+    <div class="fld"><label>Tipo de cliente</label><div class="client-type"><button type="button" class="ctb" data-tipo="PF" onclick="selTipoCliente(this)">Pessoa física (PF)</button><button type="button" class="ctb" data-tipo="PJ" onclick="selTipoCliente(this)">Pessoa jurídica (PJ)</button></div></div>
     <div class="fld"><label>Patrimônio a alocar (R$)</label><input type="text" id="valor" placeholder="150.000" inputmode="numeric" oninput="fmtValor(this)" style="font-family:'Hanken Grotesk',sans-serif"></div>
     <div class="fld"><label>Observação (opcional)</label><input id="obs" placeholder="Ex: Ajuste pontual de carteira"></div>
   </div>
@@ -1026,7 +1037,7 @@ Sofisticada:[
 ]};
 
 const CORES=['#1C5E63','#3E6B74','#2A6B4F','#A8741F','#9A6B2E','#8A5A4A','#DC2626','#6F7A4A','#2C5566','#9A6B2E'];
-let perfil=null, CH={};
+let perfil=null, tipoCliente=null, CH={};
 
 // ── ESTADO PRODUTOS ────────────────────────────────────────────
 // Seed inicial (lâminas XP jun/2026, taxas gross-up de IR) — usado só quando não há nada salvo
@@ -1186,9 +1197,13 @@ function selP(btn){
   document.querySelectorAll('.pb').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on'); perfil=btn.dataset.p; chk();
 }
+function selTipoCliente(btn){
+  document.querySelectorAll('.ctb').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on'); tipoCliente=btn.dataset.tipo; chk();
+}
 function chk(){
   document.getElementById('btnG').disabled=
-    !(document.getElementById('nome').value.trim()&&getValor()>0&&perfil);
+    !(document.getElementById('nome').value.trim()&&tipoCliente&&getValor()>0&&perfil);
 }
 
 // Taxa anual de cada produto
@@ -1221,6 +1236,7 @@ function gerar(){
   const nome=document.getElementById('nome').value.trim();
   const valor=getValor();
   const obs=document.getElementById('obs').value.trim();
+  if(!tipoCliente){toast('Selecione se o cliente é PF ou PJ antes de gerar a carteira.','warn');return;}
   if(perfil==='Personalizada'&&produtosComite.length===0){
     toast('Nenhum produto cadastrado. Vá em "Produtos do Comitê" para adicionar produtos.','warn');
     switchView('produtos'); return;
@@ -1282,7 +1298,7 @@ function gerar(){
       Use <b>Editar alocação</b> para adicionar, remover ou ajustar livremente.</span>
     </div>`:''}
     <div class="eb">
-      <span>Carteira <b>${perfil}</b> · ${nome} · ${fmt(valor)} · Retorno pond.: <b>${pc(retA)}</b> a.a. · CDI puro: <b>${pc(cdiA)}</b> a.a.</span>
+      <span>Carteira <b>${perfil}</b> · ${nome} (${tipoCliente}) · ${fmt(valor)} · Retorno pond.: <b>${pc(retA)}</b> a.a. · CDI puro: <b>${pc(cdiA)}</b> a.a.</span>
       <button class="bx" onclick="xls()">${icon('excel',13)} Excel</button>
     </div>
     <div class="mrow">
@@ -1462,7 +1478,7 @@ function xls(){
   // Aba 1: Alocação
   const r1=[
     [`GRAHAM INVESTIMENTOS — CARTEIRA ${perfil.toUpperCase()}`],
-    [`Cliente: ${nome}`,'',`Patrimônio: ${fmt(valor)}`],
+    [`Cliente: ${nome} (${tipoCliente})`,'',`Patrimônio: ${fmt(valor)}`],
     ...(obs?[[`Obs: ${obs}`]]:[[`Sem observação`]]),
     [`CDI: ${parseFloat(document.getElementById('cdi').value)}% a.a.  |  IPCA: ${parseFloat(document.getElementById('ipca').value)}% a.a. (12M real BCB/IBGE)`],
     [`Lógica IPCA+: soma direta IPCA + spread  (ex: 4,14% + 10% = 14,14%)`],[],
@@ -1583,7 +1599,7 @@ async function ppt(){
     sl.addText('Cliente',{x:4.7,y:.5,w:5,h:.3,fontSize:10,color:CS,fontFace:'Calibri',margin:0});
     sl.addText(nome,{x:4.7,y:.78,w:5,h:.55,fontSize:30,bold:true,color:CW,fontFace:'Georgia',margin:0});
     sl.addShape(pres.shapes.LINE,{x:4.7,y:1.42,w:5,h:0,line:{color:CB,width:1.5}});
-    const info=[['PATRIMÔNIO A ALOCAR',F(valor)],['DATA DO RELATóRIO',hoje],['PERFIL DE RISCO',perfil],['OBSERVAÇÃO',obs||'—']];
+    const info=[['PATRIMÔNIO A ALOCAR',F(valor)],['TIPO DE CLIENTE',tipoCliente],['DATA DO RELATóRIO',hoje],['PERFIL DE RISCO',perfil],['OBSERVAÇÃO',obs||'—']];
     info.forEach(([lb,vl],i)=>{
       const y=1.6+i*.72;
       sl.addText(lb,{x:4.7,y,w:5,h:.25,fontSize:8,color:CS,fontFace:'Calibri',charSpacing:2,margin:0});
@@ -1890,7 +1906,7 @@ async function ppt(){
 // ═══════════════════════════════════════════════════════════════
 
 // ── Estado de auth ────────────────────────────────────────────
-var AUTH={user:null,otp:null,otpExp:0,pendingEmail:null,addingRole:null,editingIdx:undefined,pendingAdvisor:null};
+var AUTH={user:null,otp:null,otpExp:0,pendingEmail:null,addingRole:null,editingIdx:undefined,pendingAdvisor:null,passwordRecovery:false};
 
 // ── Storage com fallback em memória (funciona em file://, data: e servidores) ──
 var _mem={};
@@ -2005,17 +2021,41 @@ function iniciarAuthCentral(){
   if(!authCentralAtiva()) return;
   var cfg=window.GRAHAM_SUPABASE;
   grahamSupabase=window.supabase.createClient(cfg.url,cfg.publishableKey);
+  var recoveryRequested=/(?:^|[&#?])type=recovery(?:&|$)/.test(window.location.hash+window.location.search);
+  grahamSupabase.auth.onAuthStateChange(function(event,session){
+    if(event==='PASSWORD_RECOVERY'&&session&&session.user){
+      abrirRecuperacaoSenha(session.user);
+    }
+  });
   grahamSupabase.auth.getSession().then(function(result){
-    if(result.error||!result.data.session) return;
+    if(result.error||!result.data.session){
+      if(recoveryRequested) showLErr('Este link de recuperação expirou. Solicite um novo e-mail.');
+      return;
+    }
+    if(recoveryRequested){abrirRecuperacaoSenha(result.data.session.user);return;}
     carregarPerfilCentral(result.data.session.user,true);
   });
 }
-function adminOtpKey(email){return 'graham_admin_otp_'+email;}
-function carregarPerfilCentral(authUser,restaurandoSessao,otpValidado){
+function abrirRecuperacaoSenha(authUser){
+  AUTH.passwordRecovery=true;
+  AUTH.pendingCentralUser={name:authUser.email,role:'advisor',id:authUser.email};
+  document.getElementById('loginScreen').style.display='flex';
+  document.getElementById('passwordStepTitle').textContent='Redefina sua senha';
+  document.getElementById('passwordStepDesc').innerHTML='Crie uma nova senha para voltar a acessar o sistema.';
+  document.getElementById('np1').value='';
+  document.getElementById('np2').value='';
+  document.getElementById('npErr').style.display='none';
+  showLStep(3);
+  window.history.replaceState({},document.title,window.location.pathname);
+}
+function carregarPerfilCentral(authUser,restaurandoSessao){
   return grahamSupabase.from('profiles').select('email,full_name,role,must_change_password').eq('id',authUser.id).single().then(function(result){
     if(result.error||!result.data){throw new Error('Seu perfil de acesso não foi encontrado.');}
     var user={name:result.data.full_name||authUser.email,role:result.data.role,id:result.data.email};
     if(result.data.must_change_password){
+      if(restaurandoSessao){
+        return grahamSupabase.auth.signOut();
+      }
       AUTH.pendingCentralUser=user;
       showLStep(3);
       document.getElementById('np1').value='';
@@ -2023,37 +2063,13 @@ function carregarPerfilCentral(authUser,restaurandoSessao,otpValidado){
       document.getElementById('npErr').style.display='none';
       return;
     }
-    if(user.role==='admin'){
-      if(otpValidado||sessionStorage.getItem(adminOtpKey(user.id))==='1'){
-        loginOk(user);return;
-      }
-      if(restaurandoSessao){
-        grahamSupabase.auth.signOut();
-        showLStep(1);
-        return;
-      }
-      enviarOtpAdminCentral(user);return;
-    }
     loginOk(user);
   });
 }
 function entrarAuthCentral(email,password){
   return grahamSupabase.auth.signInWithPassword({email:email,password:password}).then(function(result){
     if(result.error) throw new Error('E-mail ou senha incorretos.');
-    return carregarPerfilCentral(result.data.user,false);
-  });
-}
-function enviarOtpAdminCentral(user){
-  AUTH.pendingCentralUser=user;
-  showLStep(2);
-  document.getElementById('otpTarget').textContent=user.id;
-  document.getElementById('otpIn').value='';
-  showOTPMsg('Enviando código para o seu e-mail...','#2A6B4F');
-  grahamSupabase.auth.signInWithOtp({email:user.id,options:{shouldCreateUser:false}}).then(function(result){
-    if(result.error) throw result.error;
-    showOTPMsg('Código enviado. Verifique seu e-mail.','#2A6B4F');
-  }).catch(function(error){
-    showOTPErr('Não foi possível enviar o código: '+(error.message||'tente novamente.'));
+    return carregarPerfilCentral(result.data.user);
   });
 }
 async function doLogin(){
@@ -2142,17 +2158,6 @@ function verifyOTP(){
   const inp=document.getElementById('otpIn').value.trim();
   clearAuthErr();
   if(!inp){showOTPErr('Digite o código de 6 dígitos.');return;}
-  if(authCentralAtiva()){
-    if(!AUTH.pendingCentralUser){showOTPErr('Faça login novamente.');showLStep(1);return;}
-    grahamSupabase.auth.verifyOtp({email:AUTH.pendingCentralUser.id,token:inp,type:'email'}).then(function(result){
-      if(result.error) throw result.error;
-      sessionStorage.setItem(adminOtpKey(AUTH.pendingCentralUser.id),'1');
-      return carregarPerfilCentral(result.data.user,false,true);
-    }).catch(function(error){
-      showOTPErr('Código incorreto ou expirado. Solicite um novo login.');
-    });
-    return;
-  }
   if(Date.now()>AUTH.otpExp){showOTPErr('Código expirado. Faça login novamente.');return;}
   if(inp!==AUTH.otp){showOTPErr('Código incorreto. Tente novamente.');return;}
   const adm=loadUsers().admins.find(a=>a.email===AUTH.pendingEmail);
@@ -2176,7 +2181,6 @@ function loginOk(user){
 function logout(){
   if(!confirm('Deseja sair do sistema?'))return;
   if(authCentralAtiva()&&grahamSupabase) grahamSupabase.auth.signOut();
-  if(AUTH.user&&AUTH.user.role==='admin') sessionStorage.removeItem(adminOtpKey(AUTH.user.id));
   AUTH={user:null,otp:null,otpExp:0,pendingEmail:null,addingRole:null};
   document.getElementById('loginScreen').style.display='flex';
   document.getElementById('userBar').style.display='none';
@@ -3163,13 +3167,23 @@ function confirmFirstPassword(){
   if(p1!==p2){err.textContent='As senhas não coincidem.';err.style.background='#FEF2F2';err.style.color='#EF4444';err.style.display='block';return;}
   if(p1.length<6){err.textContent='Senha mínima: 6 caracteres.';err.style.background='#FEF2F2';err.style.color='#EF4444';err.style.display='block';return;}
   if(authCentralAtiva()){
+    if(AUTH.passwordRecovery){
+      grahamSupabase.auth.updateUser({password:p1}).then(function(result){
+        if(result.error) throw result.error;
+        AUTH.passwordRecovery=false;
+        return carregarPerfilCentral(result.data.user);
+      }).catch(function(result){
+        err.textContent='Não foi possível alterar a senha: '+(result.message||'tente novamente.');
+        err.style.background='#FEF2F2';err.style.color='#EF4444';err.style.display='block';
+      });
+      return;
+    }
     grahamSupabase.auth.updateUser({password:p1}).then(function(result){
       if(result.error) throw result.error;
       return grahamSupabase.from('profiles').update({must_change_password:false}).eq('email',AUTH.pendingCentralUser.id);
     }).then(function(result){
       if(result.error) throw result.error;
-      if(AUTH.pendingCentralUser.role==='admin') enviarOtpAdminCentral(AUTH.pendingCentralUser);
-      else loginOk(AUTH.pendingCentralUser);
+      loginOk(AUTH.pendingCentralUser);
     }).catch(function(result){
       err.textContent='Não foi possível alterar a senha: '+(result.message||'tente novamente.');
       err.style.background='#FEF2F2';err.style.color='#EF4444';err.style.display='block';
@@ -3212,27 +3226,6 @@ function applyEdits(){
   useActiveProds=true;
   gerar();
 }
-var grahamAppVersion=null;
-function verificarNovaVersao(){
-  fetch('version.json?cb='+Date.now(),{cache:'no-store'}).then(function(resp){
-    if(!resp.ok) throw new Error('HTTP '+resp.status);
-    return resp.json();
-  }).then(function(data){
-    var versao=data&&data.version;
-    if(!versao) return;
-    if(grahamAppVersion===null){grahamAppVersion=versao;return;}
-    if(grahamAppVersion!==versao) mostrarAvisoNovaVersao();
-  }).catch(function(err){console.warn('Não foi possível verificar a versão do app:',err);});
-}
-function mostrarAvisoNovaVersao(){
-  if(document.getElementById('grahamVersionNotice')) return;
-  var aviso=document.createElement('div');
-  aviso.id='grahamVersionNotice';
-  aviso.style.cssText='position:fixed;right:20px;bottom:20px;z-index:9999;max-width:340px;padding:14px 16px;border-radius:10px;background:#123742;color:#fff;font:500 14px Hanken Grotesk,Arial,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.22)';
-  aviso.innerHTML='Uma nova versão do sistema está disponível.<button type="button" style="margin:10px 0 0 12px;padding:7px 10px;border:0;border-radius:6px;background:#fff;color:#123742;font:600 12px Hanken Grotesk,Arial,sans-serif;cursor:pointer">Atualizar agora</button>';
-  aviso.querySelector('button').addEventListener('click',function(){location.reload();});
-  document.body.appendChild(aviso);
-}
 loadSavedCredentials();
 if(lsGet('graham_dark')==="1"){
   document.documentElement.setAttribute('data-dark','1');
@@ -3241,8 +3234,6 @@ if(lsGet('graham_dark')==="1"){
 loadSavedCredentials();
 carregarProdutosPlanilha();
 iniciarAuthCentral();
-verificarNovaVersao();
-setInterval(verificarNovaVersao,180000);
 
 </script>
 </body>
