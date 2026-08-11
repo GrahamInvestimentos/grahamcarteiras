@@ -598,6 +598,8 @@ html[data-dark="1"] .eic{background:#253347;}
     <div class="sl">Dados do cliente</div>
     <div class="fld"><label>Nome completo</label><input id="nome" placeholder="Ex: João da Silva" oninput="chk()"></div>
     <div class="fld"><label>Tipo de cliente</label><div class="client-type"><button type="button" class="ctb" data-tipo="PF" onclick="selTipoCliente(this)">Pessoa física (PF)</button><button type="button" class="ctb" data-tipo="PJ" onclick="selTipoCliente(this)">Pessoa jurídica (PJ)</button></div></div>
+    <div class="fld"><label>Idade do cliente</label><input type="number" id="idade" min="0" max="120" placeholder="Ex: 54" inputmode="numeric" oninput="chk()"></div>
+    <div class="fld"><label>Patrimônio total do cliente (R$)</label><input type="text" id="patrimonioTotal" placeholder="Ex: 1.000.000" inputmode="numeric" oninput="fmtValor(this)" style="font-family:'Hanken Grotesk',sans-serif"></div>
     <div class="fld"><label>Patrimônio a alocar (R$)</label><input type="text" id="valor" placeholder="150.000" inputmode="numeric" oninput="fmtValor(this)" style="font-family:'Hanken Grotesk',sans-serif"></div>
     <div class="fld"><label>Observação (opcional)</label><input id="obs" placeholder="Ex: Ajuste pontual de carteira"></div>
   </div>
@@ -1202,8 +1204,9 @@ function selTipoCliente(btn){
   btn.classList.add('on'); tipoCliente=btn.dataset.tipo; chk();
 }
 function chk(){
+  var patrimonioTotal=getPatrimonioTotal();
   document.getElementById('btnG').disabled=
-    !(document.getElementById('nome').value.trim()&&tipoCliente&&getValor()>0&&perfil);
+    !(document.getElementById('nome').value.trim()&&tipoCliente&&getIdade()!==null&&patrimonioTotal>=getValor()&&getValor()>0&&perfil);
 }
 
 // Taxa anual de cada produto
@@ -1232,11 +1235,109 @@ const fmt=v=>'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFrac
 const fmtK=v=>v>=1e6?'R$ '+(v/1e6).toFixed(2).replace('.',',')+'M':v>=1e3?'R$ '+(v/1e3).toFixed(1).replace('.',',')+'K':fmt(v);
 const pc=(v,d=2)=>(v*100).toFixed(d)+'%';
 
+// ── CONTROLE INSTITUCIONAL DE ALOCAÇÃO XP ──────────────────────
+// As informações complementares são lidas da planilha quando as colunas XP
+// estiverem preenchidas. Enquanto isso, o app não presume dados de emissor,
+// rating, prazo ou estrutura de um produto.
+function nomeTem(p,rx){return rx.test(String(p.p||''));}
+function metaXP(p,chave){return p.xp&&p.xp[chave]!==undefined?p.xp[chave]:null;}
+function isCOE(p){return metaXP(p,'coe')===true||nomeTem(p,/\bCOE\b/i);}
+function isIncentivado(p){return metaXP(p,'incentivado')===true||nomeTem(p,/\b(LCI|LCA|CRI|CRA)\b|DEB[ÊE]NTURE\s+INCENTIVADA/i);}
+function isNTNBLonga(p){
+  var vencimento=Number(metaXP(p,'vencimentoAno'))||0;
+  return vencimento>=2040||nomeTem(p,/NTN-B.*(?:\/(?:4\d|[5-9]\d)|20(?:4\d|[5-9]\d))/i);
+}
+function prazoLongo(p){
+  var prazo=Number(metaXP(p,'prazoAnos'))||0;
+  return prazo>=5||isNTNBLonga(p);
+}
+function maiorGrupoXP(prods,filtro,chave){
+  var grupos={},semCadastro=false;
+  prods.filter(filtro).forEach(function(p){
+    var nome=String(chave(p)||'').trim();
+    if(!nome){semCadastro=true;return;}
+    grupos[nome]=(grupos[nome]||0)+p.w*getValor();
+  });
+  var maior={nome:'',valor:0};
+  Object.keys(grupos).forEach(function(nome){if(grupos[nome]>maior.valor) maior={nome:nome,valor:grupos[nome]};});
+  return {maior:maior,semCadastro:semCadastro,temGrupo:Object.keys(grupos).length>0};
+}
+function moedaXP(valor){return fmt(valor)+' ('+pc(valor/getPatrimonioTotal())+' do patrimônio)';}
+function badgeXP(nivel,texto){
+  var cfg={ok:['#DCFCE7','#166534'],alerta:['#FEF3C7','#92400E'],bloqueio:['#FEE2E2','#B91C1C'],pendente:['#E2E8F0','#475569'],manual:['#DBEAFE','#1D4ED8']}[nivel]||['#E2E8F0','#475569'];
+  return '<span style="display:inline-block;padding:3px 8px;border-radius:12px;background:'+cfg[0]+';color:'+cfg[1]+';font-size:10px;font-weight:700;white-space:nowrap">'+texto+'</span>';
+}
+function avaliarControlesXP(prods,patrimonioTotal,idade){
+  var soma=function(fn){return prods.filter(fn).reduce(function(total,p){return total+p.w*getValor();},0);};
+  var incentivo=soma(isIncentivado), coe=soma(isCOE), ntnbLonga=soma(isNTNBLonga);
+  var longo=soma(prazoLongo);
+  var coeEmissor=maiorGrupoXP(prods,isCOE,function(p){return metaXP(p,'emissor');});
+  var fechado=maiorGrupoXP(prods,function(p){return metaXP(p,'fundoFechado')===true;},function(p){return p.p;});
+  var credito=maiorGrupoXP(prods,function(p){return metaXP(p,'creditoPrivado')===true;},function(p){return metaXP(p,'emissor');});
+  var bancario=maiorGrupoXP(prods,function(p){return metaXP(p,'bancario')===true&&metaXP(p,'ratingBaixo')===true;},function(p){return metaXP(p,'conglomerado');});
+  var coeBloqueado=coe>=patrimonioTotal*.25;
+  var coeIdadeBloqueado=idade>=70&&coe>0;
+  var rows=[];
+  function add(controle,publico,gatilho,nivel,status,detalhe){rows.push({controle:controle,publico:publico,gatilho:gatilho,nivel:nivel,status:status,detalhe:detalhe});}
+
+  if(tipoCliente==='PJ'&&incentivo>0) add('Ativos incentivados','PJ','LCI, LCA, CRI, CRA ou debênture incentivada','alerta','JUSTIFICATIVA',moedaXP(incentivo)+' em ativo incentivado. Exige comprovação do regime tributário quando aplicável.');
+  else add('Ativos incentivados','PJ','LCI, LCA, CRI, CRA ou debênture incentivada','ok',tipoCliente==='PJ'?'SEM GATILHO':'NÃO APLICÁVEL',tipoCliente==='PJ'?'Nenhum ativo incentivado identificado nesta proposta.':'A regra é exclusiva para pessoa jurídica.');
+
+  add('Recompra RF / Rolagem inversa','PF e PJ','Venda e recompra do mesmo título, no mesmo dia e vencimento, a taxa inferior','manual','OPERAÇÃO MANUAL','Esta proposta é uma nova alocação. Conferir na execução se houver venda e recompra.');
+  add('Flipagem - Fundos listados B3','PF e PJ','Venda até 1 mês após o fim do lockup','manual','OPERAÇÃO MANUAL','Controlar na ordem de venda; não ocorre na geração desta carteira.');
+  add('Flipagem - Fundos balcão','PF e PJ','Venda em até 6 meses após a aquisição','manual','OPERAÇÃO MANUAL','Controlar na ordem de venda; não ocorre na geração desta carteira.');
+  add('Flipagem - Mutual Funds','PF e PJ','Venda antes de 180 dias da compra','manual','OPERAÇÃO MANUAL','Controlar na ordem de venda; não ocorre na geração desta carteira.');
+  add('Resgate PGBL','PF','Resgate >= R$ 100 mil e >= 30% em alíquota >= 15%','manual','OPERAÇÃO MANUAL','Aplicável somente em solicitação de resgate de previdência.');
+  add('Resgate VGBL','PF','Resgate >= R$ 100 mil e >= 30% em alíquota >= 15%','manual','OPERAÇÃO MANUAL','Aplicável somente em solicitação de resgate de previdência.');
+
+  if(ntnbLonga>=patrimonioTotal*.15) add('NTN-B longa','PF e PJ','Alocação >= 15% do AuC em ativos com vencimento >= 2040','alerta','JUSTIFICATIVA',moedaXP(ntnbLonga)+' em NTN-B longa.');
+  else add('NTN-B longa','PF e PJ','Alocação >= 15% do AuC em ativos com vencimento >= 2040','ok','SEM GATILHO',ntnbLonga?moedaXP(ntnbLonga)+'; abaixo de 15% do patrimônio.':'Nenhuma NTN-B com vencimento a partir de 2040 identificada.');
+
+  if(coeEmissor.semCadastro) add('COE por emissor','PF e PJ','Alocação >= 10% do AuC em um emissor','pendente','DADO PENDENTE','Há '+moedaXP(coe)+' em COE. Cadastre o emissor para consolidar o limite de 10%.');
+  else if(coeEmissor.maior.valor>=patrimonioTotal*.10) add('COE por emissor','PF e PJ','Alocação >= 10% do AuC em um emissor','alerta','JUSTIFICATIVA',coeEmissor.maior.nome+': '+moedaXP(coeEmissor.maior.valor)+'.');
+  else if(coe>0) add('COE por emissor','PF e PJ','Alocação >= 10% do AuC em um emissor','ok','DENTRO DO LIMITE',coeEmissor.maior.nome+': '+moedaXP(coeEmissor.maior.valor)+'.');
+  else add('COE por emissor','PF e PJ','Alocação >= 10% do AuC em um emissor','ok','SEM GATILHO','Nenhum COE identificado nesta proposta.');
+
+  if(coeBloqueado) add('COE por produto','PF e PJ','Alocação >= 25% do AuC em COE','bloqueio','BLOQUEADO',moedaXP(coe)+' em COE. O PDF informa que a trava de 25% não possui exceção.');
+  else add('COE por produto','PF e PJ','Alocação >= 25% do AuC em COE','ok','DENTRO DO LIMITE',coe?moedaXP(coe)+'; abaixo de 25% do patrimônio.':'Nenhum COE identificado nesta proposta.');
+
+  if(idade>=80&&longo>0) add('Cliente com 80 anos ou mais','PF e PJ','Ativos com prazo >= 5 anos','alerta','JUSTIFICATIVA','Cliente com '+idade+' anos e '+moedaXP(longo)+' em ativos longos.');
+  else add('Cliente com 80 anos ou mais','PF e PJ','Ativos com prazo >= 5 anos','ok',idade>=80?'SEM GATILHO':'NÃO APLICÁVEL',idade>=80?'Nenhum ativo longo identificado nesta proposta.':'Cliente com '+idade+' anos.');
+
+  if(!fechado.temGrupo) add('Fundos fechados','PF e PJ','Alocação >= 10% do AuC em um único fundo fechado','pendente','DADO PENDENTE','Cadastre "XP - Fundo fechado" por produto para validar concentração.');
+  else if(fechado.maior.valor>=patrimonioTotal*.10) add('Fundos fechados','PF e PJ','Alocação >= 10% do AuC em um único fundo fechado','alerta','JUSTIFICATIVA',fechado.maior.nome+': '+moedaXP(fechado.maior.valor)+'.');
+  else add('Fundos fechados','PF e PJ','Alocação >= 10% do AuC em um único fundo fechado','ok','DENTRO DO LIMITE',fechado.maior.nome+': '+moedaXP(fechado.maior.valor)+'.');
+
+  if(!credito.temGrupo) add('Crédito privado','PF e PJ','Alocação >= 5% do AuC em um único emissor','pendente','DADO PENDENTE','Cadastre emissor e "XP - Crédito privado" por produto para validar concentração.');
+  else if(credito.semCadastro||credito.maior.valor>=patrimonioTotal*.05) add('Crédito privado','PF e PJ','Alocação >= 5% do AuC em um único emissor','alerta','JUSTIFICATIVA',credito.semCadastro?'Há produto de crédito privado sem emissor cadastrado.':credito.maior.nome+': '+moedaXP(credito.maior.valor)+'.');
+  else add('Crédito privado','PF e PJ','Alocação >= 5% do AuC em um único emissor','ok','DENTRO DO LIMITE',credito.maior.nome+': '+moedaXP(credito.maior.valor)+'.');
+
+  if(!bancario.temGrupo) add('Bancários','PF e PJ','Mesmo conglomerado >= R$ 180 mil em emissor de baixo rating','pendente','DADO PENDENTE','Cadastre conglomerado, "XP - Bancário" e "XP - Rating baixo" para validar este controle.');
+  else if(bancario.semCadastro||bancario.maior.valor>=180000) add('Bancários','PF e PJ','Mesmo conglomerado >= R$ 180 mil em emissor de baixo rating','alerta','JUSTIFICATIVA',bancario.semCadastro?'Há produto bancário sem conglomerado cadastrado.':bancario.maior.nome+': '+fmt(bancario.maior.valor)+'.');
+  else add('Bancários','PF e PJ','Mesmo conglomerado >= R$ 180 mil em emissor de baixo rating','ok','DENTRO DO LIMITE',bancario.maior.nome+': '+fmt(bancario.maior.valor)+'.');
+
+  return {rows:rows,bloqueios:(coeBloqueado?['COE acima de 25% do patrimônio']:[]).concat(coeIdadeBloqueado?['COE não é habilitado para cliente com 70 anos ou mais']:[])};
+}
+function renderControlesXP(prods,patrimonioTotal,idade){
+  var avaliacao=avaliarControlesXP(prods,patrimonioTotal,idade);
+  var html='<h2 class="st">Controle Institucional de Alocação - XP</h2><div class="tc" style="margin-bottom:22px">';
+  html+='<div style="padding:11px 16px;background:var(--navy);color:#fff;font-size:12px;font-weight:600">REGRAS VIGENTES DE COMPLIANCE - '+avaliacao.rows.length+' CONTROLES</div>';
+  html+='<div style="overflow-x:auto"><table class="conf-tbl"><thead><tr><th>Controle</th><th>Aplicável a</th><th>Gatilho XP</th><th>Status</th><th>Verificação</th></tr></thead><tbody>';
+  avaliacao.rows.forEach(function(r){html+='<tr><td style="font-weight:600">'+r.controle+'</td><td>'+r.publico+'</td><td style="color:var(--muted)">'+r.gatilho+'</td><td>'+badgeXP(r.nivel,r.status)+'</td><td style="font-size:11px;color:var(--muted);min-width:230px">'+r.detalhe+'</td></tr>';});
+  html+='</tbody></table></div><div style="padding:10px 16px;font-size:11px;color:var(--muted);background:var(--slate-bg)">AuC considerado: patrimônio atual do cliente. Controles marcados como dado pendente exigem cadastro complementar na planilha antes da liberação definitiva.</div></div>';
+  return html;
+}
+
 function gerar(){
   const nome=document.getElementById('nome').value.trim();
   const valor=getValor();
+  const patrimonioTotal=getPatrimonioTotal();
+  const idade=getIdade();
   const obs=document.getElementById('obs').value.trim();
   if(!tipoCliente){toast('Selecione se o cliente é PF ou PJ antes de gerar a carteira.','warn');return;}
+  if(idade===null){toast('Informe a idade do cliente para aplicar os controles XP.','warn');return;}
+  if(!patrimonioTotal){toast('Informe o patrimônio total do cliente para aplicar os controles XP.','warn');return;}
+  if(valor>patrimonioTotal){toast('O valor a alocar não pode ser maior que o patrimônio total do cliente.','warn');return;}
   if(perfil==='Personalizada'&&produtosComite.length===0){
     toast('Nenhum produto cadastrado. Vá em "Produtos do Comitê" para adicionar produtos.','warn');
     switchView('produtos'); return;
@@ -1250,6 +1351,11 @@ function gerar(){
     const lim=getPatrimonyLimit(valor);
     prods=buildXPPortfolio([..._rawProds], getActiveMetas(), lim.max);
     activeProds=prods.map(p=>({...p}));
+  }
+  const controlesXP=avaliarControlesXP(prods,patrimonioTotal,idade);
+  if(controlesXP.bloqueios.length){
+    toast('Carteira bloqueada: '+controlesXP.bloqueios.join(' · ')+'.','err');
+    return;
   }
   const _wasFiltered=prods.length<_rawProds.length;
   const _lim=getPatrimonyLimit(valor);
@@ -1298,7 +1404,7 @@ function gerar(){
       Use <b>Editar alocação</b> para adicionar, remover ou ajustar livremente.</span>
     </div>`:''}
     <div class="eb">
-      <span>Carteira <b>${perfil}</b> · ${nome} (${tipoCliente}) · ${fmt(valor)} · Retorno pond.: <b>${pc(retA)}</b> a.a. · CDI puro: <b>${pc(cdiA)}</b> a.a.</span>
+      <span>Carteira <b>${perfil}</b> · ${nome} (${tipoCliente}, ${idade} anos) · Alocação: ${fmt(valor)} · Patrimônio total: ${fmt(patrimonioTotal)} · Retorno pond.: <b>${pc(retA)}</b> a.a. · CDI puro: <b>${pc(cdiA)}</b> a.a.</span>
       <button class="bx" onclick="xls()">${icon('excel',13)} Excel</button>
     </div>
     <div class="mrow">
@@ -1314,6 +1420,7 @@ function gerar(){
     </div>
 
     ${(['Conservadora','Moderada','Sofisticada'].includes(perfil))?calcDesvioHtml(prods,alocMetas[perfil],perfil):''}
+    ${renderControlesXP(prods,patrimonioTotal,idade)}
     <h2 class="st">Distribuição da carteira</h2>
     <div class="cg">
       <div class="cc"><div class="cct">Por classe de ativo</div>
@@ -1466,6 +1573,8 @@ function gerar(){
 function xls(){
   const nome=document.getElementById('nome').value.trim();
   const valor=getValor();
+  const patrimonioTotal=getPatrimonioTotal();
+  const idade=getIdade();
   const obs=document.getElementById('obs').value.trim();
   const prods=getProds();
   prods.forEach(p=>p._t=taxa(p));
@@ -1478,7 +1587,8 @@ function xls(){
   // Aba 1: Alocação
   const r1=[
     [`GRAHAM INVESTIMENTOS — CARTEIRA ${perfil.toUpperCase()}`],
-    [`Cliente: ${nome} (${tipoCliente})`,'',`Patrimônio: ${fmt(valor)}`],
+    [`Cliente: ${nome} (${tipoCliente}, ${idade} anos)`,'',`Patrimônio total: ${fmt(patrimonioTotal)}`],
+    [`Valor a alocar: ${fmt(valor)}`],
     ...(obs?[[`Obs: ${obs}`]]:[[`Sem observação`]]),
     [`CDI: ${parseFloat(document.getElementById('cdi').value)}% a.a.  |  IPCA: ${parseFloat(document.getElementById('ipca').value)}% a.a. (12M real BCB/IBGE)`],
     [`Lógica IPCA+: soma direta IPCA + spread  (ex: 4,14% + 10% = 14,14%)`],[],
@@ -1525,6 +1635,19 @@ function xls(){
   ws3['!cols']=[{wch:10},{wch:16},{wch:16}];
   XLSX.utils.book_append_sheet(wb,ws3,'Histórico CDI-IPCA 48M');
 
+  // Aba 4: Controle Institucional de Alocação XP
+  const xp=avaliarControlesXP(prods,patrimonioTotal,idade);
+  const r4=[
+    ['CONTROLE INSTITUCIONAL DE ALOCAÇÃO - XP'],
+    [`Cliente: ${nome} (${tipoCliente}, ${idade} anos)`],
+    [`Patrimônio total: ${fmt(patrimonioTotal)} | Valor a alocar: ${fmt(valor)}`],[],
+    ['Controle','Aplicável a','Gatilho XP','Status','Verificação']
+  ];
+  xp.rows.forEach(r=>r4.push([r.controle,r.publico,r.gatilho,r.status,r.detalhe]));
+  const ws4=XLSX.utils.aoa_to_sheet(r4);
+  ws4['!cols']=[{wch:32},{wch:14},{wch:52},{wch:18},{wch:68}];
+  XLSX.utils.book_append_sheet(wb,ws4,'Controle XP');
+
   XLSX.writeFile(wb,`Graham_${perfil}_${nome.replace(/ /g,'_')}.xlsx`);
 }
 
@@ -1538,6 +1661,8 @@ async function ppt(){
 
   const nome=document.getElementById('nome').value.trim();
   const valor=getValor();
+  const patrimonioTotal=getPatrimonioTotal();
+  const idade=getIdade();
   const obs=document.getElementById('obs').value.trim();
   const cdiA=parseFloat(document.getElementById('cdi').value)/100;
   const ipcaA=parseFloat(document.getElementById('ipca').value)/100;
@@ -1599,7 +1724,7 @@ async function ppt(){
     sl.addText('Cliente',{x:4.7,y:.5,w:5,h:.3,fontSize:10,color:CS,fontFace:'Calibri',margin:0});
     sl.addText(nome,{x:4.7,y:.78,w:5,h:.55,fontSize:30,bold:true,color:CW,fontFace:'Georgia',margin:0});
     sl.addShape(pres.shapes.LINE,{x:4.7,y:1.42,w:5,h:0,line:{color:CB,width:1.5}});
-    const info=[['PATRIMÔNIO A ALOCAR',F(valor)],['TIPO DE CLIENTE',tipoCliente],['DATA DO RELATóRIO',hoje],['PERFIL DE RISCO',perfil],['OBSERVAÇÃO',obs||'—']];
+    const info=[['PATRIMÔNIO TOTAL',F(patrimonioTotal)],['VALOR A ALOCAR',F(valor)],['PERFIL / TIPO / IDADE',`${perfil} / ${tipoCliente} / ${idade} anos`],['DATA DO RELATÓRIO',hoje],['OBSERVAÇÃO',obs||'—']];
     info.forEach(([lb,vl],i)=>{
       const y=1.6+i*.72;
       sl.addText(lb,{x:4.7,y,w:5,h:.25,fontSize:8,color:CS,fontFace:'Calibri',charSpacing:2,margin:0});
@@ -1993,6 +2118,16 @@ function fmtValor(el){
 function getValor(){
   var raw=document.getElementById('valor').value.replace(/\./g,'').replace(',','.');
   return parseFloat(raw)||0;
+}
+function getPatrimonioTotal(){
+  var raw=document.getElementById('patrimonioTotal').value.replace(/\./g,'').replace(',','.');
+  return parseFloat(raw)||0;
+}
+function getIdade(){
+  var raw=String(document.getElementById('idade').value||'').trim();
+  if(raw==='') return null;
+  var idade=parseInt(raw,10);
+  return idade>=0&&idade<=120?idade:null;
 }
 function toggleDark(){
   var isDark=document.documentElement.getAttribute('data-dark')==="1";
@@ -2540,6 +2675,9 @@ function mapearProdutos(rows){
   var IDXMAP={'CDI+':'cdi','IPCA+':'ipca','Prefixado':'pre','Outros':'est'};
   function num(v){return parseFloat(String(v==null?'':v).replace(',','.'))||0;}
   function pub(v){return String(v==null?'':v).trim().toUpperCase()==='IQ'?'IQ':'PG';}
+  function texto(v){return String(v==null?'':v).trim();}
+  function simNao(v){var t=texto(v).toUpperCase(); return t==='SIM'||t==='S'||t==='TRUE'?true:t==='NÃO'||t==='NAO'||t==='N'||t==='FALSE'?false:null;}
+  function inteiro(v){var n=parseInt(texto(v),10); return isNaN(n)?null:n;}
   var out=[],byName={},id=1;
   // 1ª passada: cria os produtos e guarda os nomes dos substitutos
   rows.forEach(function(r){
@@ -2548,7 +2686,19 @@ function mapearProdutos(rows){
     var idx=IDXMAP[String(r['Indexador']||'').trim()]||'est';
     var taxa=num(r['Spread/Taxa (% a.a.)']);
     var prod={id:id++,cl:String(r['Classe de ativo']||'').trim(),p:nome,
-              T:pub(r['Público']),w:num(r['Peso (%)'])/100,idx:idx,subs:[],_subs:[]};
+              T:pub(r['Público']),w:num(r['Peso (%)'])/100,idx:idx,subs:[],_subs:[],xp:{
+                emissor:texto(r['XP - Emissor']),
+                conglomerado:texto(r['XP - Conglomerado']),
+                rating:texto(r['XP - Rating']),
+                vencimentoAno:inteiro(r['XP - Vencimento (ano)']),
+                prazoAnos:inteiro(r['XP - Prazo (anos)']),
+                coe:simNao(r['XP - COE']),
+                incentivado:simNao(r['XP - Incentivado']),
+                fundoFechado:simNao(r['XP - Fundo fechado']),
+                creditoPrivado:simNao(r['XP - Crédito privado']),
+                bancario:simNao(r['XP - Bancário']),
+                ratingBaixo:simNao(r['XP - Rating baixo'])
+              }};
     if(idx==='est') prod.e=taxa; else prod.s=taxa;
     [1,2].forEach(function(n){
       var sn=String(r['Subst. '+n+' - Nome']||'').trim();
@@ -2561,7 +2711,7 @@ function mapearProdutos(rows){
     prod._subs.forEach(function(sn){
       var src=byName[sn.toLowerCase()];
       if(src){
-        var sub={p:src.p,cl:src.cl,T:src.T,idx:src.idx};
+        var sub={p:src.p,cl:src.cl,T:src.T,idx:src.idx,xp:src.xp};
         if(src.idx==='est') sub.e=src.e; else sub.s=src.s;
         prod.subs.push(sub);
       }else{
