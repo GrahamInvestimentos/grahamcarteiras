@@ -599,7 +599,7 @@ html[data-dark="1"] .eic{background:#253347;}
     <div class="fld"><label>Nome completo</label><input id="nome" placeholder="Ex: João da Silva" oninput="chk()"></div>
     <div class="fld"><label>Tipo de cliente</label><div class="client-type"><button type="button" class="ctb" data-tipo="PF" onclick="selTipoCliente(this)">Pessoa física (PF)</button><button type="button" class="ctb" data-tipo="PJ" onclick="selTipoCliente(this)">Pessoa jurídica (PJ)</button></div></div>
     <div class="fld"><label>Idade do cliente</label><input type="number" id="idade" min="0" max="120" placeholder="Ex: 54" inputmode="numeric" oninput="chk()"></div>
-    <div class="fld"><label>Patrimônio total do cliente (R$)</label><input type="text" id="patrimonioTotal" placeholder="Ex: 1.000.000" inputmode="numeric" oninput="fmtValor(this)" style="font-family:'Hanken Grotesk',sans-serif"></div>
+    <div class="fld"><label>Patrimônio líquido atual considerado pela XP (R$)</label><input type="text" id="patrimonioTotal" placeholder="Ex: 1.000.000" inputmode="numeric" oninput="fmtValor(this)" style="font-family:'Hanken Grotesk',sans-serif"><div style="font-size:10px;color:var(--muted);margin-top:5px;line-height:1.4">XP Brasil + XP Internacional + valores externos via Open Finance, quando ativo.</div></div>
     <div class="fld"><label>Patrimônio a alocar (R$)</label><input type="text" id="valor" placeholder="150.000" inputmode="numeric" oninput="fmtValor(this)" style="font-family:'Hanken Grotesk',sans-serif"></div>
     <div class="fld"><label>Observação (opcional)</label><input id="obs" placeholder="Ex: Ajuste pontual de carteira"></div>
   </div>
@@ -1324,7 +1324,7 @@ function renderControlesXP(prods,patrimonioTotal,idade){
   html+='<div style="padding:11px 16px;background:var(--navy);color:#fff;font-size:12px;font-weight:600">REGRAS VIGENTES DE COMPLIANCE - '+avaliacao.rows.length+' CONTROLES</div>';
   html+='<div style="overflow-x:auto"><table class="conf-tbl"><thead><tr><th>Controle</th><th>Aplicável a</th><th>Gatilho XP</th><th>Status</th><th>Verificação</th></tr></thead><tbody>';
   avaliacao.rows.forEach(function(r){html+='<tr><td style="font-weight:600">'+r.controle+'</td><td>'+r.publico+'</td><td style="color:var(--muted)">'+r.gatilho+'</td><td>'+badgeXP(r.nivel,r.status)+'</td><td style="font-size:11px;color:var(--muted);min-width:230px">'+r.detalhe+'</td></tr>';});
-  html+='</tbody></table></div><div style="padding:10px 16px;font-size:11px;color:var(--muted);background:var(--slate-bg)">AuC considerado: patrimônio atual do cliente. Controles marcados como dado pendente exigem cadastro complementar na planilha antes da liberação definitiva.</div></div>';
+  html+='</tbody></table></div><div style="padding:10px 16px;font-size:11px;color:var(--muted);background:var(--slate-bg)">AuC considerado: XP Brasil + XP Internacional + valores externos via Open Finance, quando ativo. Controles marcados como dado pendente exigem cadastro complementar na planilha antes da liberação definitiva.</div></div>';
   return html;
 }
 
@@ -1336,8 +1336,8 @@ function gerar(){
   const obs=document.getElementById('obs').value.trim();
   if(!tipoCliente){toast('Selecione se o cliente é PF ou PJ antes de gerar a carteira.','warn');return;}
   if(idade===null){toast('Informe a idade do cliente para aplicar os controles XP.','warn');return;}
-  if(!patrimonioTotal){toast('Informe o patrimônio total do cliente para aplicar os controles XP.','warn');return;}
-  if(valor>patrimonioTotal){toast('O valor a alocar não pode ser maior que o patrimônio total do cliente.','warn');return;}
+  if(!patrimonioTotal){toast('Informe o patrimônio líquido atual considerado pela XP para aplicar os controles.','warn');return;}
+  if(valor>patrimonioTotal){toast('O valor a alocar não pode ser maior que o patrimônio considerado pela XP.','warn');return;}
   if(perfil==='Personalizada'&&produtosComite.length===0){
     toast('Nenhum produto cadastrado. Vá em "Produtos do Comitê" para adicionar produtos.','warn');
     switchView('produtos'); return;
@@ -1404,7 +1404,7 @@ function gerar(){
       Use <b>Editar alocação</b> para adicionar, remover ou ajustar livremente.</span>
     </div>`:''}
     <div class="eb">
-      <span>Carteira <b>${perfil}</b> · ${nome} (${tipoCliente}, ${idade} anos) · Alocação: ${fmt(valor)} · Patrimônio total: ${fmt(patrimonioTotal)} · Retorno pond.: <b>${pc(retA)}</b> a.a. · CDI puro: <b>${pc(cdiA)}</b> a.a.</span>
+      <span>Carteira <b>${perfil}</b> · ${nome} (${tipoCliente}, ${idade} anos) · Alocação: ${fmt(valor)} · Patrimônio considerado pela XP: ${fmt(patrimonioTotal)} · Retorno pond.: <b>${pc(retA)}</b> a.a. · CDI puro: <b>${pc(cdiA)}</b> a.a.</span>
       <button class="bx" onclick="xls()">${icon('excel',13)} Excel</button>
     </div>
     <div class="mrow">
@@ -1587,7 +1587,7 @@ function xls(){
   // Aba 1: Alocação
   const r1=[
     [`GRAHAM INVESTIMENTOS — CARTEIRA ${perfil.toUpperCase()}`],
-    [`Cliente: ${nome} (${tipoCliente}, ${idade} anos)`,'',`Patrimônio total: ${fmt(patrimonioTotal)}`],
+    [`Cliente: ${nome} (${tipoCliente}, ${idade} anos)`,'',`Patrimônio considerado pela XP: ${fmt(patrimonioTotal)}`],
     [`Valor a alocar: ${fmt(valor)}`],
     ...(obs?[[`Obs: ${obs}`]]:[[`Sem observação`]]),
     [`CDI: ${parseFloat(document.getElementById('cdi').value)}% a.a.  |  IPCA: ${parseFloat(document.getElementById('ipca').value)}% a.a. (12M real BCB/IBGE)`],
@@ -1640,7 +1640,7 @@ function xls(){
   const r4=[
     ['CONTROLE INSTITUCIONAL DE ALOCAÇÃO - XP'],
     [`Cliente: ${nome} (${tipoCliente}, ${idade} anos)`],
-    [`Patrimônio total: ${fmt(patrimonioTotal)} | Valor a alocar: ${fmt(valor)}`],[],
+    [`Patrimônio considerado pela XP: ${fmt(patrimonioTotal)} | Valor a alocar: ${fmt(valor)}`],[],
     ['Controle','Aplicável a','Gatilho XP','Status','Verificação']
   ];
   xp.rows.forEach(r=>r4.push([r.controle,r.publico,r.gatilho,r.status,r.detalhe]));
@@ -1724,7 +1724,7 @@ async function ppt(){
     sl.addText('Cliente',{x:4.7,y:.5,w:5,h:.3,fontSize:10,color:CS,fontFace:'Calibri',margin:0});
     sl.addText(nome,{x:4.7,y:.78,w:5,h:.55,fontSize:30,bold:true,color:CW,fontFace:'Georgia',margin:0});
     sl.addShape(pres.shapes.LINE,{x:4.7,y:1.42,w:5,h:0,line:{color:CB,width:1.5}});
-    const info=[['PATRIMÔNIO TOTAL',F(patrimonioTotal)],['VALOR A ALOCAR',F(valor)],['PERFIL / TIPO / IDADE',`${perfil} / ${tipoCliente} / ${idade} anos`],['DATA DO RELATÓRIO',hoje],['OBSERVAÇÃO',obs||'—']];
+    const info=[['PATRIMÔNIO CONSIDERADO XP',F(patrimonioTotal)],['VALOR A ALOCAR',F(valor)],['PERFIL / TIPO / IDADE',`${perfil} / ${tipoCliente} / ${idade} anos`],['DATA DO RELATÓRIO',hoje],['OBSERVAÇÃO',obs||'—']];
     info.forEach(([lb,vl],i)=>{
       const y=1.6+i*.72;
       sl.addText(lb,{x:4.7,y,w:5,h:.25,fontSize:8,color:CS,fontFace:'Calibri',charSpacing:2,margin:0});
